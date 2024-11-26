@@ -1,0 +1,129 @@
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import Number from './Number';
+import { postalCodeValidation } from '../../../utils/store/postal-code';
+
+// Mock postalCodeValidation to avoid API calls
+jest.mock('../../../utils/store/postal-code', () => ({
+  postalCodeValidation: jest.fn(() => Promise.resolve({ data: 'mocked response' })),
+}));
+
+const mockStore = configureStore([]);
+
+describe('Number Component', () => {
+  let store: any;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [
+          {
+            stageId: 'ad-2',
+            stageInfo: {
+              application: { channel_reference: '1234' },
+              applicants: {
+                postal_code_a_1: '',
+              },
+            },
+          },
+        ],
+        userInput: { applicants: { postal_code_a_1: '' } },
+        updatedStageInputs: [],
+      },
+      fielderror: { error: null },
+    });
+    store.dispatch = jest.fn(); // Mock dispatch
+  });
+
+  const renderComponent = (props = {}) => {
+    const defaultProps = {
+      data: {
+        type: 'text',
+        logical_field_name: 'postal_code',
+        rwb_label_name: 'Postal Code',
+        regex: '^[0-9]{5}$',
+        mandatory: 'Yes',
+        editable: false,
+        min_length: 5,
+        length: 5,
+      },
+      handleCallback: jest.fn(),
+      handleFieldDispatch: jest.fn(),
+      ...props,
+    };
+
+    return render(
+      <Provider store={store}>
+        <Number {...defaultProps} />
+      </Provider>
+    );
+  };
+
+  it('renders the component with initial state', () => {
+    renderComponent();
+    expect(screen.getByLabelText('Postal Code')).toBeInTheDocument();
+    expect(screen.getByLabelText('Postal Code')).toHaveAttribute('type', 'text');
+  });
+
+  it('displays an error when mandatory field is left empty', () => {
+    renderComponent();
+    const input = screen.getByLabelText('Postal Code');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(screen.getByText('Please enter Postal Code')).toBeInTheDocument();
+  });
+
+  it('displays an error when input does not match regex', () => {
+    renderComponent();
+    const input = screen.getByLabelText('Postal Code');
+    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.blur(input);
+    expect(screen.getByText('Invalid pattern Postal Code')).toBeInTheDocument();
+  });
+
+  it('calls the handleCallback function on valid input', () => {
+    const handleCallbackMock = jest.fn();
+    renderComponent({ handleCallback: handleCallbackMock });
+    const input = screen.getByLabelText('Postal Code');
+    fireEvent.change(input, { target: { value: '12345' } });
+    fireEvent.blur(input);
+    expect(handleCallbackMock).toHaveBeenCalledWith(expect.any(Object), '12345');
+  });
+
+  it('dispatches postal code validation on valid postal code input', async () => {
+    renderComponent();
+    const input = screen.getByLabelText('Postal Code');
+    fireEvent.change(input, { target: { value: '12345' } });
+    fireEvent.blur(input);
+    expect(postalCodeValidation).toHaveBeenCalledWith(
+      '12345',
+      '1234',
+      expect.any(Object)
+    );
+    expect(store.dispatch).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it('renders a spinner when postal code validation is in progress', async () => {
+    renderComponent();
+    const input = screen.getByLabelText('Postal Code');
+    fireEvent.change(input, { target: { value: '12345' } });
+    fireEvent.blur(input);
+    expect(screen.getByClassName('circle-spinner')).toBeInTheDocument();
+  });
+
+  it('handles field validation and error display for account number mismatch', () => {
+    const customProps = {
+      data: {
+        ...Number.defaultProps,
+        logical_field_name: 'scb_account_no',
+      },
+    };
+    renderComponent(customProps);
+    const input = screen.getByLabelText('Postal Code');
+    fireEvent.change(input, { target: { value: '12345' } });
+    fireEvent.blur(input);
+    expect(screen.getByText('Account number mismatch')).toBeInTheDocument();
+  });
+});
