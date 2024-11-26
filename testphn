@@ -1,0 +1,212 @@
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import { Phone } from './phone'; // Adjust the import path as needed
+import { getUrl } from '../../../utils/common/change.utils';
+ 
+// Mock services and utilities
+jest.mock('../../../services/validation-service', () => ({
+  allowOnlyCharacter: jest.fn(),
+}));
+ 
+jest.mock('../../../utils/common/change.utils', () => ({
+  ...jest,
+  fieldIdAppend: jest.fn(() => 'test-field-id'),
+  fieldError: jest.fn(() => false),
+  isFieldUpdate: jest.fn(),
+  isFieldValueUpdate: jest.fn(),
+}));
+ 
+describe('Phone Component', () => {
+  const mockProps = {
+    data: {
+      logical_field_name: 'mobile_number',
+      rwb_label_name: 'Mobile Number',
+      mandatory: 'Yes',
+      min_length: 8,
+      length: 10,
+      regex: '^[89]\\d+$',
+      type: 'text',
+      editable: false,
+    },
+    handleCallback: jest.fn(),
+  };
+ 
+  const initialState = {
+    lov: {
+      lov: [{
+        label: 'mobile_number',
+        value: [{ CODE_DESC: 'Singapore (+65)' }]
+      }]
+    },
+    stages: {
+      stages: [{
+        stageId: '1',
+        stageInfo: {
+          applicants: {
+            'test-field-id': '91234567'
+          }
+        }
+      }],
+      userInput: {
+        applicants: {
+          'test-field-id': '91234567'
+        }
+      }
+    },
+    fielderror: {
+      error: {}
+    }
+  };
+ 
+  const mockStore = configureStore([]);
+  let store: any;
+ 
+  beforeEach(() => {
+    store = mockStore(initialState);
+    jest.clearAllMocks();
+ 
+    // Mock getUrl utility
+
+    (getUrl.getUpdatedStage as jest.Mock).mockReturnValue({
+        updatedStageInputs:[{stageId:"bd-1",applicants:{annual_income_a_1:"100",
+        full_name_a_1:"test", 'test-field-id': '91234567'}}]
+    });
+//     global.getUrl = {
+//       getUpdatedStage: jest.fn(() => ({
+//         updatedStageInputs: [{
+//           stageId: '1',
+//           applicants: {
+//             'test-field-id': '91234567'
+//           }
+//         }]
+//       }))
+//     };
+//   });
+ 
+  const renderComponent = (props = mockProps) => {
+    return render(
+<Provider store={store}>
+<Phone {...props} />
+</Provider>
+    );
+  };
+ 
+  // Test rendering
+  test('renders phone input with correct label', () => {
+    renderComponent();
+    expect(screen.getByLabelText('Mobile Number')).toBeInTheDocument();
+  });
+ 
+  // Test initial value population
+  test('populates initial value from stage selector', () => {
+    renderComponent();
+    const input = screen.getByPlaceholderText('Mobile Number');
+    expect(input).toHaveValue('1234567');
+  });
+ 
+  // Test country code display
+  test('displays country code from lov data', () => {
+    renderComponent();
+    expect(screen.getByText('Singapore (+65)')).toBeInTheDocument();
+  });
+ 
+  // Validation tests
+  describe('Phone Number Validation', () => {
+    test('shows error for empty mandatory field', () => {
+      renderComponent();
+      const input = screen.getByPlaceholderText('Mobile Number');
+      fireEvent.change(input, { target: { value: '' } });
+      expect(screen.getByText(/cannot be empty/i)).toBeInTheDocument();
+    });
+ 
+    test('shows error for invalid first digit', () => {
+      renderComponent();
+      const input = screen.getByPlaceholderText('Mobile Number');
+      fireEvent.change(input, { target: { value: '61234567' } });
+      expect(screen.getByText(/Singapore mobile number/i)).toBeInTheDocument();
+    });
+ 
+    test('shows error for insufficient length', () => {
+      renderComponent();
+      const input = screen.getByPlaceholderText('Mobile Number');
+      fireEvent.change(input, { target: { value: '912345' } });
+      expect(screen.getByText(/minimum 8 digits/i)).toBeInTheDocument();
+    });
+ 
+    test('shows error for regex mismatch', () => {
+      const invalidProps = {
+        ...mockProps,
+        data: {
+          ...mockProps.data,
+          regex: '^[89]\\d{7}$'
+        }
+      };
+ 
+      renderComponent(invalidProps);
+      const input = screen.getByPlaceholderText('Mobile Number');
+      fireEvent.change(input, { target: { value: '912345678901' } });
+      expect(screen.getByText(/invalid Mobile Number/i)).toBeInTheDocument();
+    });
+  });
+ 
+  // Input interaction tests
+  describe('Input Interactions', () => {
+    test('calls handleCallback on input change', () => {
+      renderComponent();
+      const input = screen.getByPlaceholderText('Mobile Number');
+      fireEvent.change(input, { target: { value: '98765432' } });
+      expect(mockProps.handleCallback).toHaveBeenCalled();
+    });
+ 
+    test('calls allowOnlyCharacter on keypress', () => {
+      renderComponent();
+      const input = screen.getByPlaceholderText('Mobile Number');
+      fireEvent.keyPress(input, { key: 'a', code: 'KeyA' });
+      expect(require('../../../services/validation-service').allowOnlyCharacter).toHaveBeenCalled();
+    });
+ 
+    test('input is disabled when editable is true', () => {
+      const disabledProps = {
+        ...mockProps,
+        data: {
+          ...mockProps.data,
+          editable: true
+        }
+      };
+ 
+      renderComponent(disabledProps);
+      const input = screen.getByPlaceholderText('Mobile Number');
+      expect(input).toBeDisabled();
+    });
+  });
+ 
+//   // Redux dispatch tests
+//   describe('Redux Dispatches', () => {
+//     test('dispatches lastAction on focus', () => {
+//       renderComponent();
+//       const input = screen.getByPlaceholderText('Mobile Number');
+//       fireEvent.focus(input);
+//       const actions = store.getActions();
+//       expect(actions.some(action => action.type.includes('lastAction/getField'))).toBeTruthy();
+//     });
+ 
+//     test('dispatches field update on valid blur', () => {
+//       renderComponent();
+//       const input = screen.getByPlaceholderText('Mobile Number');
+//       fireEvent.change(input, { target: { value: '98765432', validity: { valid: true } } });
+//       fireEvent.blur(input);
+//       const actions = store.getActions();
+//       expect(actions.some(action => action.type.includes('isFieldUpdate'))).toBeTruthy();
+//       expect(actions.some(action => action.type.includes('isFieldValueUpdate'))).toBeTruthy();
+//     });
+//   });
+ 
+  // Country code parsing test
+  test('correctly parses country code', () => {
+    const { container } = renderComponent();
+    const countryCodeElement = container.querySelector('.phone__flag + span');
+    expect(countryCodeElement).toHaveTextContent('(+65)');
+  });
+})})
