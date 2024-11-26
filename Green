@@ -1,0 +1,33 @@
+import { render, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Footer from "./Footer";
+
+const mockStore = configureStore([]);
+
+describe("Footer Component", () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: { stages: [{ stageId: "someStageId", stageInfo: { products: [] } }] },
+    });
+  });
+
+  it("should render Footer component", () => {
+    render(
+      <Provider store={store}>
+        <Footer
+          validateNxt="true"
+          uploadJourney={true}
+          otherMyinfo={false}
+          backHandler={jest.fn()}
+          journeyType="NTC"
+        />
+      </Provider>
+    );
+
+    expect(screen.getByText("Back")).toBeInTheDocument();
+    expect(screen.getByText("Agree and Submit")).toBeInTheDocument();
+  });
+});
