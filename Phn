@@ -127,3 +127,20 @@ describe('Number Component', () => {
     expect(screen.getByText('Account number mismatch')).toBeInTheDocument();
   });
 });
+
+ FAIL  src/shared/components/phone/phone.test.tsx
+  ● Test suite failed to run
+
+    Your test suite must contain at least one test.
+
+      at onResult (node_modules/jest/node_modules/@jest/core/build/TestScheduler.js:133:18)
+      at node_modules/emittery/index.js:363:13
+          at Array.map (<anonymous>)
+      at Emittery.emit (node_modules/emittery/index.js:361:23)
+
+Test Suites: 1 failed, 1 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        2.837 s
+Ran all test suites matching /c:\\Users\\8215258\\scbmain\\50540-rtob-ui-app-sg-lending\\src\\shared\\components\\phone\\phone.test.tsx/i with tests matching "Phone Component".
+PS C:\Users\8215258\scbmain\50540-rtob-ui-app-sg-lending> 
