@@ -1,105 +1,133 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import Footer from './Footer'; // Adjust the import as per your project structure
+import React from "react";
+import { shallow } from "enzyme";
+import { useSelector } from "react-redux";
+import Footer from "./footer";
+import { CONSTANTS } from "../../../utils/common/constants";
+import { getUrl } from "../../../utils/common/change.utils";
+import { authenticateType } from '../../../utils/common/change.utils';
 
-// Mock dependencies and functions
-const mockDispatch = jest.fn();
-const mockTrackEvents = { triggerAdobeEvent: jest.fn() };
-
-jest.mock('react-redux', () => ({
-  useDispatch: () => mockDispatch,
+// Mock the useSelector hook from redux
+jest.mock("react-redux", () => ({
+useSelector: jest.fn(),
 }));
-jest.mock('../path/to/trackEvents', () => mockTrackEvents);
 
-// Mock props
-const mockBackHandler = jest.fn();
-const mockOtherMyinfo = { key: 'value' };
-const mockIsRequiredValid = true;
-const mockApplicationJourney = 'journey-type';
+// Mock the getUrl function
+jest.mock("../../../utils/common/change.utils", () => ({
+getUrl: {
+getUrlEndPoint: jest.fn(),
+},
+}));
 
-describe('Footer Component', () => {
-  beforeEach(() => {
-    jest.clearAllMocks(); // Reset mocks before each test
-  });
+// Mock the dependencies
+jest.mock('../../utils/common/change.utils', () => ({
+    authenticateType: jest.fn(()=>"manual"),
+    getUrl: jest.fn(),
+  }));
 
-  test('renders Footer component with all props', () => {
-    render(
-      <Footer
-        otherMyinfo={mockOtherMyinfo}
-        backHandler={mockBackHandler}
-        validateNxt={mockIsRequiredValid}
-        journeyType={mockApplicationJourney}
-      />
-    );
+describe("Footer Component", () => {
+const backHandlerMock = jest.fn();
 
-    // Assertions for rendering
-    expect(screen.getByTestId('footer')).toBeInTheDocument(); // Ensure footer renders
-    expect(screen.getByText(/some-footer-text/i)).toBeInTheDocument(); // Replace with actual text/content
-  });
+    jest.mock("react-redux", () => ({
+    ...jest.requireActual("react-redux"),
+    useSelector: jest.fn(),
+    useDispatch: jest.fn(),
+    }));
 
-  test('calls backHandler on back button click', () => {
-    render(
-      <Footer
-        otherMyinfo={mockOtherMyinfo}
-        backHandler={mockBackHandler}
-        validateNxt={mockIsRequiredValid}
-        journeyType={mockApplicationJourney}
-      />
-    );
+beforeEach(() => {
+// Reset the mock functions before each test
+(useSelector as jest.Mock).mockClear();
+(getUrl.getUrlEndPoint as jest.Mock).mockClear();
+backHandlerMock.mockClear();
+});
 
-    const backButton = screen.getByRole('button', { name: /back/i }); // Adjust 'back' if the button has different text
-    fireEvent.click(backButton);
+it("renders correctly when back button is enabled", () => {
+// Mock the selector to return a stage
+(useSelector as jest.Mock).mockReturnValue([{ stageId: "someStage", stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
 
-    expect(mockBackHandler).toHaveBeenCalledTimes(1); // Ensure backHandler is called
-  });
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" />);
 
-  test('displays validateNxt status correctly', () => {
-    render(
-      <Footer
-        otherMyinfo={mockOtherMyinfo}
-        backHandler={mockBackHandler}
-        validateNxt={mockIsRequiredValid}
-        journeyType={mockApplicationJourney}
-      />
-    );
+// Check if Back button is rendered
+expect(wrapper.find(".back").length).toBe(1);
+expect(wrapper.find(".continue").text()).toBe("Continue");
+});
 
-    if (mockIsRequiredValid) {
-      expect(screen.getByText(/valid/i)).toBeInTheDocument(); // Replace with actual text/content
-    } else {
-      expect(screen.queryByText(/valid/i)).not.toBeInTheDocument();
-    }
-  });
+it("renders correctly when back button is not enabled", () => {
+// Mock the selector to return a stage where back button should be disabled
+(useSelector as jest.Mock).mockReturnValue([{ stageId: CONSTANTS.STAGE_NAMES.SSF_1, stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
 
-  test('renders dynamic content based on journeyType', () => {
-    render(
-      <Footer
-        otherMyinfo={mockOtherMyinfo}
-        backHandler={mockBackHandler}
-        validateNxt={mockIsRequiredValid}
-        journeyType="specific-journey"
-      />
-    );
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" />);
 
-    expect(screen.getByText(/specific-journey-text/i)).toBeInTheDocument(); // Replace with actual dynamic text/content
-  });
+// Check if Back button is not rendered
+expect(wrapper.find(".back").length).toBe(0);
+});
 
-  test('dispatches actions correctly within backHandler', async () => {
-    await mockBackHandler(true);
+it("disables the back button when journeyType is NTC and conditions are met", () => {
+// Mock the selector to return a stage with conditions for NTC journeyType
+(useSelector as jest.Mock).mockReturnValue([{ stageId: CONSTANTS.STAGE_NAMES.BD_3, stageInfo: { products: [{ product_category: "CC" }] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
 
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'stagesAction.setLastStageId',
-      })
-    );
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" />);
 
-    expect(mockTrackEvents.triggerAdobeEvent).toHaveBeenCalledWith(
-      'ctaClick',
-      'Back'
-    );
+// Back button should not be rendered
+expect(wrapper.find(".back").length).toBe(0);
+});
 
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'ValueUpdateAction.getChangeUpdate',
-      })
-    );
-  });
+it("calls backHandler when back button is clicked", () => {
+(useSelector as jest.Mock).mockReturnValue([{ stageId: "someStage", stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
+
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" />);
+wrapper.find(".back").simulate("click");
+
+// Check if backHandler was called
+expect(backHandlerMock).toHaveBeenCalled();
+});
+
+it("shows the spinner when ctaSpinner is true", () => {
+(useSelector as jest.Mock).mockReturnValue([{ stageId: "someStage", stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("acknowledge"); // This sets ctaSpinner to true
+
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" />);
+
+// Check if the spinner is rendered
+expect(wrapper.find(".circle-spinner").length).toBe(1);
+});
+
+it("displays 'Agree and Submit' text when stageId is 'rp' or uploadJourney is true", () => {
+(useSelector as jest.Mock).mockReturnValue([{ stageId: "rp", stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
+
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" uploadJourney={true} />);
+
+// Check if the button text is 'Agree and Submit'
+expect(wrapper.find(".continue").text()).toBe("Agree and Submit");
+});
+
+it("displays 'Continue' text when ctaSpinner is false and conditions are not met", () => {
+(useSelector as jest.Mock).mockReturnValue([{ stageId: "someStage", stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
+
+const wrapper = shallow(<Footer backHandler={backHandlerMock} journeyType="NTC" uploadJourney={false} />);
+
+// Check if the button text is 'Continue'
+expect(wrapper.find(".continue").text()).toBe("Continue");
+});
+
+it("correctly toggles the back button based on otherMyinfo prop", () => {
+// Mock selector to simulate stage
+(useSelector as jest.Mock).mockReturnValue([{ stageId: "someStage", stageInfo: { products: [{}] } }]);
+(getUrl.getUrlEndPoint as jest.Mock).mockReturnValue("someUrl");
+
+const wrapper = shallow(<Footer backHandler={backHandlerMock} otherMyinfo={false} journeyType="NTC" />);
+
+// Check if Back button is visible when otherMyinfo is false
+expect(wrapper.find(".back").length).toBe(1);
+
+wrapper.setProps({ otherMyinfo: true });
+
+// Check if Back button is not visible when otherMyinfo is true
+expect(wrapper.find(".back").length).toBe(0);
+});
 });
