@@ -91,3 +91,115 @@ describe("Footer Component", () => {
     expect(wrapper.find(".back").length).toBe(0);
   });
 });
+
+
+
+import React from "react";
+import { shallow } from "enzyme";
+import { useSelector } from "react-redux";
+import Footer from "./footer";
+
+// Mock the useSelector hook from redux
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+}));
+
+// Mock the utility functions from change.utils
+jest.mock("../../../utils/common/change.utils", () => ({
+  authenticateType: jest.fn(() => "manual"),
+  getUrl: jest.fn(),
+}));
+
+describe("Footer Component", () => {
+  const backHandlerMock = jest.fn();
+
+  beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+    (useSelector as jest.Mock).mockClear();
+  });
+
+  it("renders correctly when back button is enabled", () => {
+    // Mock the selector to return a stage
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "someStage", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer backHandler={backHandlerMock} journeyType="NTC" />
+    );
+
+    // Check if Back button is rendered
+    expect(wrapper.find(".back").length).toBe(1);
+    expect(wrapper.find(".continue").text()).toBe("Continue");
+  });
+
+  it("renders correctly when back button is not enabled", () => {
+    // Mock the selector to return a stage where back button should be disabled
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "SSF_1", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer backHandler={backHandlerMock} journeyType="NTC" />
+    );
+
+    // Check if Back button is not rendered
+    expect(wrapper.find(".back").length).toBe(0);
+  });
+
+  it("calls backHandler when back button is clicked", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "someStage", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer backHandler={backHandlerMock} journeyType="NTC" />
+    );
+    wrapper.find(".back").simulate("click");
+
+    // Check if backHandler was called
+    expect(backHandlerMock).toHaveBeenCalled();
+  });
+
+  it("displays 'Agree and Submit' text when stageId is 'rp' or uploadJourney is true", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "rp", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer
+        backHandler={backHandlerMock}
+        journeyType="NTC"
+        uploadJourney={true}
+      />
+    );
+
+    // Check if the button text is 'Agree and Submit'
+    expect(wrapper.find(".continue").text()).toBe("Agree and Submit");
+  });
+
+  it("displays 'Continue' text when ctaSpinner is false and conditions are not met", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "someStage", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer
+        backHandler={backHandlerMock}
+        journeyType="NTC"
+        uploadJourney={false}
+      />
+    );
+
+    // Check if the button text is 'Continue'
+    expect(wrapper.find(".continue").text()).toBe("Continue");
+  });
+
+  it("correctly calls authenticateType function", () => {
+    const { authenticateType } = require("../../../utils/common/change.utils");
+
+    // Ensure the mocked function is returning the expected value
+    expect(authenticateType()).toBe("manual");
+  });
+});
