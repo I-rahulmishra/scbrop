@@ -1,0 +1,22 @@
+import { render, screen, fireEvent } from "@testing-library/react";
+import Footer from "./Footer";
+
+describe("Footer Component", () => {
+  it("should call backHandler when the 'Back' button is clicked", () => {
+    const mockBackHandler = jest.fn();
+    const props = {
+      otherMyinfo: true,
+      backHandler: mockBackHandler,
+      validateNxt: "valid",
+      journeyType: "NTC",
+      uploadJourney: false,
+    };
+
+    render(<Footer {...props} />);
+
+    const backButton = screen.getByText(/Back/i); // Query the "Back" button
+    fireEvent.click(backButton); // Simulate the click event
+
+    expect(mockBackHandler).toHaveBeenCalledTimes(1); // Verify backHandler was called once
+  });
+});
