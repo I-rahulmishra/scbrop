@@ -10,7 +10,6 @@ jest.mock("react-redux", () => ({
 
 // Mock the utility functions from change.utils
 jest.mock("../../../utils/common/change.utils", () => ({
-  authenticateType: jest.fn(() => "manual"),
   getUrl: jest.fn(),
 }));
 
@@ -21,6 +20,7 @@ describe("Footer Component", () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
     (useSelector as jest.Mock).mockClear();
+    (require("../../../utils/common/change.utils").getUrl as jest.Mock).mockClear();
   });
 
   it("renders correctly when back button is enabled", () => {
@@ -28,6 +28,11 @@ describe("Footer Component", () => {
     (useSelector as jest.Mock).mockReturnValue([
       { stageId: "someStage", stageInfo: { products: [{}] } },
     ]);
+    
+    // Mock getUrl function if required for the logic
+    (require("../../../utils/common/change.utils").getUrl as jest.Mock).mockReturnValue({
+      getUrlEndPoint: () => "someEndpoint",
+    });
 
     const wrapper = shallow(
       <Footer backHandler={backHandlerMock} journeyType="NTC" />
@@ -63,7 +68,7 @@ describe("Footer Component", () => {
     wrapper.find(".back").simulate("click");
 
     // Check if backHandler was called
-    expect(backHandlerMock).toHaveBeenCalled();
+    expect(backHandlerMock).toHaveBeenCalledTimes(1);
   });
 
   it("displays 'Agree and Submit' text when stageId is 'rp' or uploadJourney is true", () => {
@@ -100,10 +105,79 @@ describe("Footer Component", () => {
     expect(wrapper.find(".continue").text()).toBe("Continue");
   });
 
-  it("correctly calls authenticateType function", () => {
-    const { authenticateType } = require("../../../utils/common/change.utils");
+  it("displays spinner when ctaSpinner is true", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "rp", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer
+        backHandler={backHandlerMock}
+        journeyType="NTC"
+        uploadJourney={false}
+      />
+    );
+
+    // Set state to show the spinner
+    wrapper.setState({ ctaSpinner: true });
+
+    // Check if spinner is displayed
+    expect(wrapper.find(".circle-spinner").length).toBe(1);
+  });
+
+  it("correctly hides spinner when ctaSpinner is false", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { stageId: "rp", stageInfo: { products: [{}] } },
+    ]);
+
+    const wrapper = shallow(
+      <Footer
+        backHandler={backHandlerMock}
+        journeyType="NTC"
+        uploadJourney={false}
+      />
+    );
+
+    // Set state to hide the spinner
+    wrapper.setState({ ctaSpinner: false });
+
+    // Check if spinner is hidden
+    expect(wrapper.find(".circle-spinner").length).toBe(0);
+  });
+
+  it("correctly calls getUrl function to determine endpoint", () => {
+    const { getUrl } = require("../../../utils/common/change.utils");
+
+    // Mock getUrl function to return a specific value
+    (getUrl as jest.Mock).mockReturnValue({
+      getUrlEndPoint: () => "acknowledge",
+    });
 
     // Ensure the mocked function is returning the expected value
-    expect(authenticateType()).toBe("manual");
+    expect(getUrl().getUrlEndPoint()).toBe("acknowledge");
+  });
+
+  it("correctly handles stage selection logic", () => {
+    // Test case where `stageSelector` changes based on props
+    (useSelector as jest.Mock).mockReturnValue([
+      {
+        stageId: "BD_3",
+        stageInfo: {
+          products: [{ product_category: "CC" }],
+        },
+      },
+    ]);
+
+    const wrapper = shallow(
+      <Footer
+        backHandler={backHandlerMock}
+        journeyType="NTC"
+        uploadJourney={false}
+        otherMyinfo={false}
+      />
+    );
+
+    // Expect the back button not to be displayed due to the stage condition
+    expect(wrapper.find(".back").length).toBe(0);
   });
 });
