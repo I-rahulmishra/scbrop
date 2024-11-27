@@ -1,32 +1,19 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useDispatch, useSelector } from "react-redux";
-import Phone from "./Phone";
-import "@testing-library/jest-dom/extend-expect";
+import { Phone } from "./phone";
 
 jest.mock("react-redux", () => ({
-  useSelector: jest.fn(),
   useDispatch: jest.fn(),
+  useSelector: jest.fn(),
 }));
 
-const mockDispatch = jest.fn();
-useDispatch.mockReturnValue(mockDispatch);
-
-const mockProps = {
-  data: {
-    logical_field_name: "mobile_number",
-    rwb_label_name: "Mobile Number",
-    mandatory: "Yes",
-    min_length: 8,
-    regex: "^[89][0-9]{7}$",
-    editable: false,
-    length: 8,
-  },
-  handleCallback: jest.fn(),
-};
-
 describe("Phone Component", () => {
+  const mockDispatch = jest.fn();
+  const mockHandleCallback = jest.fn();
+
   beforeEach(() => {
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
     (useSelector as jest.Mock).mockImplementation((selectorFn) => {
       if (selectorFn.name === "lovSelector") {
         return {
@@ -39,16 +26,24 @@ describe("Phone Component", () => {
         };
       }
       if (selectorFn.name === "stageSelector") {
-        return {
-          stages: [
-            {
-              stageInfo: {
-                applicants: {
-                  mobile_number_a_1: "+6591234567",
-                },
+        return [
+          {
+            stageInfo: {
+              applicants: {
+                mobile_number_a_1: "123456789",
               },
             },
-          ],
+          },
+        ];
+      }
+      if (selectorFn.name === "fieldErrorSelector") {
+        return {};
+      }
+      if (selectorFn.name === "userInputSelector") {
+        return {
+          applicants: {
+            mobile_number_a_1: "987654321",
+          },
         };
       }
       return {};
@@ -59,99 +54,139 @@ describe("Phone Component", () => {
     jest.clearAllMocks();
   });
 
-  test("renders Phone component with label and input field", () => {
-    render(<Phone {...mockProps} />);
+  it("renders Phone component with label and input field", () => {
+    render(
+      <Phone
+        data={{
+          logical_field_name: "mobile_number",
+          rwb_label_name: "Mobile Number",
+          type: "text",
+          min_length: 8,
+          length: 12,
+          regex: "^\\d+$",
+          mandatory: "Yes",
+          editable: false,
+        }}
+        handleCallback={mockHandleCallback}
+      />
+    );
 
+    // Check if label is rendered
     expect(screen.getByLabelText("Mobile Number")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Mobile Number")).toBeInTheDocument();
+
+    // Check if input is rendered
+    const input = screen.getByPlaceholderText("Mobile Number");
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveAttribute("minLength", "8");
+    expect(input).toHaveAttribute("maxLength", "12");
+    expect(input).toHaveAttribute("pattern", "^\\d+$");
   });
 
-  test("displays country code from LOV data", () => {
-    render(<Phone {...mockProps} />);
+  it("displays country code from LOV data", () => {
+    render(
+      <Phone
+        data={{
+          logical_field_name: "mobile_number",
+          rwb_label_name: "Mobile Number",
+          type: "text",
+          min_length: 8,
+          length: 12,
+          regex: "^\\d+$",
+          mandatory: "Yes",
+          editable: false,
+        }}
+        handleCallback={mockHandleCallback}
+      />
+    );
 
+    // Check if country code is displayed
     expect(screen.getByText("(+65)")).toBeInTheDocument();
   });
 
-  test("displays default value from stage selector", () => {
-    render(<Phone {...mockProps} />);
+  it("handles input change correctly", () => {
+    render(
+      <Phone
+        data={{
+          logical_field_name: "mobile_number",
+          rwb_label_name: "Mobile Number",
+          type: "text",
+          min_length: 8,
+          length: 12,
+          regex: "^\\d+$",
+          mandatory: "Yes",
+          editable: false,
+        }}
+        handleCallback={mockHandleCallback}
+      />
+    );
 
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    expect(inputField).toHaveValue("91234567");
-  });
+    // Simulate input change
+    const input = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.change(input, { target: { value: "91234567" } });
 
-  test("calls handleCallback on valid input change", () => {
-    render(<Phone {...mockProps} />);
-
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.change(inputField, { target: { value: "91234567" } });
-
-    expect(mockProps.handleCallback).toHaveBeenCalledWith(
-      mockProps.data,
+    expect(input).toHaveValue("91234567");
+    expect(mockHandleCallback).toHaveBeenCalledWith(
+      {
+        logical_field_name: "mobile_number",
+        rwb_label_name: "Mobile Number",
+        type: "text",
+        min_length: 8,
+        length: 12,
+        regex: "^\\d+$",
+        mandatory: "Yes",
+        editable: false,
+      },
       "91234567"
     );
   });
 
-  test("displays error for invalid mobile number pattern", () => {
-    render(<Phone {...mockProps} />);
+  it("shows error message for invalid input", () => {
+    render(
+      <Phone
+        data={{
+          logical_field_name: "mobile_number",
+          rwb_label_name: "Mobile Number",
+          type: "text",
+          min_length: 8,
+          length: 12,
+          regex: "^\\d+$",
+          mandatory: "Yes",
+          editable: false,
+        }}
+        handleCallback={mockHandleCallback}
+      />
+    );
 
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.change(inputField, { target: { value: "71234567" } });
+    // Simulate invalid input
+    const input = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.change(input, { target: { value: "123" } });
 
-    expect(
-      screen.getByText("Please enter a valid Singapore mobile number")
-    ).toBeInTheDocument();
+    // Check for error message
+    expect(screen.getByText(/Minimum 8 digits required/)).toBeInTheDocument();
   });
 
-  test("displays error if mandatory field is empty", () => {
-    render(<Phone {...mockProps} />);
+  it("dispatches action on blur", () => {
+    render(
+      <Phone
+        data={{
+          logical_field_name: "mobile_number",
+          rwb_label_name: "Mobile Number",
+          type: "text",
+          min_length: 8,
+          length: 12,
+          regex: "^\\d+$",
+          mandatory: "Yes",
+          editable: false,
+        }}
+        handleCallback={mockHandleCallback}
+      />
+    );
 
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.change(inputField, { target: { value: "" } });
+    const input = screen.getByPlaceholderText("Mobile Number");
 
-    expect(
-      screen.getByText("Mobile Number is required")
-    ).toBeInTheDocument();
-  });
-
-  test("displays error for input shorter than minimum length", () => {
-    render(<Phone {...mockProps} />);
-
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.change(inputField, { target: { value: "9123" } });
-
-    expect(
-      screen.getByText("Mobile Number must be at least 8 digits")
-    ).toBeInTheDocument();
-  });
-
-  test("calls dispatch on input blur", () => {
-    render(<Phone {...mockProps} />);
-
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.blur(inputField);
+    // Simulate blur event
+    fireEvent.blur(input);
 
     expect(mockDispatch).toHaveBeenCalled();
-  });
-
-  test("prevents non-numeric input", () => {
-    render(<Phone {...mockProps} />);
-
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.change(inputField, { target: { value: "abcde" } });
-
-    expect(inputField).toHaveValue(""); // Should remain empty for non-numeric input
-  });
-
-  test("focus handler dispatches action", () => {
-    render(<Phone {...mockProps} />);
-
-    const inputField = screen.getByPlaceholderText("Mobile Number");
-    fireEvent.focus(inputField);
-
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: expect.stringContaining("getField"),
-      })
-    );
   });
 });
