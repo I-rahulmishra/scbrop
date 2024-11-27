@@ -1,81 +1,122 @@
 import React from "react";
-import { render, fireEvent, screen } from "@testing-library/react";
-import { useSelector } from "react-redux";
-import { Phone } from "./Phone";
-import '@testing-library/jest-dom/extend-expect';
+import { render, screen, fireEvent } from "@testing-library/react";
+import { useDispatch, useSelector } from "react-redux";
+import Phone from "./Phone";
+import "@testing-library/jest-dom/extend-expect";
 
 jest.mock("react-redux", () => ({
   useSelector: jest.fn(),
+  useDispatch: jest.fn(),
 }));
 
-const mockHandleCallback = jest.fn();
+const mockDispatch = jest.fn();
+useDispatch.mockReturnValue(mockDispatch);
+
+const mockProps = {
+  data: {
+    logical_field_name: "mobile_number",
+    rwb_label_name: "Mobile Number",
+    mandatory: "Yes",
+    min_length: 8,
+    regex: "^[89][0-9]{7}$",
+    editable: false,
+    length: 8,
+  },
+  handleCallback: jest.fn(),
+};
 
 describe("Phone Component", () => {
   beforeEach(() => {
-    // Mock the data returned by the useSelector hook
-    (useSelector as jest.Mock).mockReturnValue([
-      {
-        label: "Country Code",
-        value: [{ CODE_DESC: "(+65)" }],
-      },
-    ]);
+    (useSelector as jest.Mock).mockImplementation((selectorFn) => {
+      if (selectorFn.name === "lovSelector") {
+        return {
+          lov: [
+            {
+              label: "Country Code",
+              value: [{ CODE_DESC: "(+65)" }],
+            },
+          ],
+        };
+      }
+      if (selectorFn.name === "stageSelector") {
+        return {
+          stages: [
+            {
+              stageInfo: {
+                applicants: {
+                  mobile_number_a_1: "+6591234567",
+                },
+              },
+            },
+          ],
+        };
+      }
+      return {};
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  const mockProps = {
-    data: {
-      logical_field_name: "mobile_number_a_1",
-      rwb_label_name: "Mobile Number",
-      mandatory: "Yes",
-      min_length: 8,
-      regex: "^[89][0-9]{7}$",
-      editable: false,
-      length: 8,
-    },
-    handleCallback: mockHandleCallback,
-  };
-
-  test("should render Phone component", () => {
+  test("renders Phone component with label and input field", () => {
     render(<Phone {...mockProps} />);
 
-    expect(screen.getByText("Mobile Number")).toBeInTheDocument();
-    const inputField = screen.getByRole("textbox", { name: /mobile number/i });
-    expect(inputField).toBeInTheDocument();
+    expect(screen.getByLabelText("Mobile Number")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Mobile Number")).toBeInTheDocument();
   });
 
-  test("should display country code if provided", () => {
+  test("displays country code from LOV data", () => {
     render(<Phone {...mockProps} />);
 
     expect(screen.getByText("(+65)")).toBeInTheDocument();
   });
 
-  test("should call handleCallback on valid input", () => {
+  test("displays default value from stage selector", () => {
     render(<Phone {...mockProps} />);
 
-    const inputField = screen.getByRole("textbox", { name: /mobile number/i });
-    fireEvent.change(inputField, { target: { value: "91234567" } });
-
-    expect(mockHandleCallback).toHaveBeenCalledWith(mockProps.data, "91234567");
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    expect(inputField).toHaveValue("91234567");
   });
 
-  test("should display error on invalid input", () => {
+  test("calls handleCallback on valid input change", () => {
     render(<Phone {...mockProps} />);
 
-    const inputField = screen.getByRole("textbox", { name: /mobile number/i });
-    fireEvent.change(inputField, { target: { value: "12345678" } });
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.change(inputField, { target: { value: "91234567" } });
+
+    expect(mockProps.handleCallback).toHaveBeenCalledWith(
+      mockProps.data,
+      "91234567"
+    );
+  });
+
+  test("displays error for invalid mobile number pattern", () => {
+    render(<Phone {...mockProps} />);
+
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.change(inputField, { target: { value: "71234567" } });
 
     expect(
       screen.getByText("Please enter a valid Singapore mobile number")
     ).toBeInTheDocument();
   });
 
-  test("should display error if input is less than minimum length", () => {
+  test("displays error if mandatory field is empty", () => {
     render(<Phone {...mockProps} />);
 
-    const inputField = screen.getByRole("textbox", { name: /mobile number/i });
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.change(inputField, { target: { value: "" } });
+
+    expect(
+      screen.getByText("Mobile Number is required")
+    ).toBeInTheDocument();
+  });
+
+  test("displays error for input shorter than minimum length", () => {
+    render(<Phone {...mockProps} />);
+
+    const inputField = screen.getByPlaceholderText("Mobile Number");
     fireEvent.change(inputField, { target: { value: "9123" } });
 
     expect(
@@ -83,24 +124,34 @@ describe("Phone Component", () => {
     ).toBeInTheDocument();
   });
 
-  test("should prevent non-numeric input", () => {
+  test("calls dispatch on input blur", () => {
     render(<Phone {...mockProps} />);
 
-    const inputField = screen.getByRole("textbox", { name: /mobile number/i });
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.blur(inputField);
 
-    fireEvent.change(inputField, { target: { value: "abcde" } });
-    expect(inputField.value).toBe(""); // Should remain empty since non-numeric input is disallowed
-
-    fireEvent.change(inputField, { target: { value: "91234567" } });
-    expect(inputField.value).toBe("91234567"); // Numeric input should be accepted
+    expect(mockDispatch).toHaveBeenCalled();
   });
 
-  test("should not call handleCallback on invalid input", () => {
+  test("prevents non-numeric input", () => {
     render(<Phone {...mockProps} />);
 
-    const inputField = screen.getByRole("textbox", { name: /mobile number/i });
-    fireEvent.change(inputField, { target: { value: "123" } });
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.change(inputField, { target: { value: "abcde" } });
 
-    expect(mockHandleCallback).not.toHaveBeenCalled();
+    expect(inputField).toHaveValue(""); // Should remain empty for non-numeric input
+  });
+
+  test("focus handler dispatches action", () => {
+    render(<Phone {...mockProps} />);
+
+    const inputField = screen.getByPlaceholderText("Mobile Number");
+    fireEvent.focus(inputField);
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: expect.stringContaining("getField"),
+      })
+    );
   });
 });
