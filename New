@@ -1,183 +1,232 @@
-import React from "react";
-import { shallow } from "enzyme";
-import { useSelector } from "react-redux";
-import Footer from "./footer";
+import React, { useEffect, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  fieldIdAppend,
+  isFieldUpdate,
+  getUrl,
+  isFieldValueUpdate,
+  fieldError
+} from "../../../utils/common/change.utils";
+import { KeyWithAnyModel, StoreModel } from "../../../utils/model/common-model";
+import "./amount.scss";
+import validateService from "../../../services/validation-service";
+import loanDetailsConst from "../../../assets/_json/loan-details.json";
+import errorMsg from "../../../assets/_json/error.json"
 
-// Mock the useSelector hook from redux
-jest.mock("react-redux", () => ({
-  useSelector: jest.fn(),
-}));
+const Amount = (props: KeyWithAnyModel) => {
+  debugger;
+  const [errors, setErrors] = useState("");
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
+  const dispatch = useDispatch();
+  const [defaultValue, setDefaultValue] = useState("");
+  const userInputSelector = useSelector(
+    (state: StoreModel) => state.stages.userInput
+  );
+  const fieldErrorSelector = useSelector(
+    (state: StoreModel) => state.fielderror.error
+  );
 
-// Mock the utility functions from change.utils
-jest.mock("../../../utils/common/change.utils", () => ({
-  getUrl: jest.fn(),
-}));
+  const changeHandler = (
+    fieldName: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setDefaultValue(event.target.value);
+    if(props.data.logical_field_name === 'required_annual_income' ){
+      if(parseInt(event.target.value) >= loanDetailsConst.minAnnualIncome){
+        props.handleCallback(props.data, event.target.value);
+        dispatch(isFieldUpdate(props, event.target.value, props.data.logical_field_name));
+        setErrors((!event.target.validity.valid).toString());
+      } else {
+        props.handleCallback(props.data, "");
+        setErrors("");
+      }
+    } 
+    else if(props.data.logical_field_name === 'preferred_credit_limit') {
+      const value = parseInt(event.target.value);
+      if(isNaN(value) || value < 1000) {
+        setErrors(`Please enter ${props.data.rwb_label_name} ${errorMsg.minValue}`);
+      } else if(value > 250000){
+        setErrors(`Please enter ${props.data.rwb_label_name} ${errorMsg.maxValue}`)
+      } else {
+        setErrors("");
+      }
+      props.handleCallback(props.data, event.target.value);
+      dispatch(isFieldUpdate(props, event.target.value, props.data.logical_field_name));
+    }
+    else if(props.data.logical_field_name === 'annual_income') {
+      const value = parseInt(event.target.value);
+      if(isNaN(value) || value < 1000) {
+        setErrors(`Please enter ${props.data.rwb_label_name} ${errorMsg.minValue}`);
+      } else if(value > 250000){
+        setErrors(`Please enter ${props.data.rwb_label_name} ${errorMsg.maxValue}`)
+      } else {
+        setErrors("");
+      }
+      props.handleCallback(props.data, event.target.value);
+      dispatch(isFieldUpdate(props, event.target.value, props.data.logical_field_name));
+    }
+    else {
+      props.handleCallback(props.data, event.target.value);
+      setErrors((!event.target.validity.valid).toString());
+    }
+    //setErrors(!event.target.validity.valid);
+  };
 
-describe("Footer Component", () => {
-  const backHandlerMock = jest.fn();
+  useEffect(() => {
+    if (
+      stageSelector &&
+      stageSelector[0] &&
+      stageSelector[0].stageInfo &&
+      stageSelector[0].stageInfo.applicants
+    ) {
+      let value = getStoreValue();
 
-  beforeEach(() => {
-    // Clear all mocks before each test
-    jest.clearAllMocks();
-    (useSelector as jest.Mock).mockClear();
-    (require("../../../utils/common/change.utils").getUrl as jest.Mock).mockClear();
-  });
+      if(props.data.logical_field_name === "required_annual_income" && !value){
+        value = stageSelector[0].stageInfo.applicants["annual_income_a_1"];
+      }
 
-  it("renders correctly when back button is enabled", () => {
-    // Mock the selector to return a stage
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "someStage", stageInfo: { products: [{}] } },
-    ]);
-    
-    // Mock getUrl function if required for the logic
-    (require("../../../utils/common/change.utils").getUrl as jest.Mock).mockReturnValue({
-      getUrlEndPoint: () => "someEndpoint",
-    });
+      if(value && parseFloat(value) < loanDetailsConst.minAnnualIncome){
+        value = loanDetailsConst.minAnnualIncome.toString();
+      }
+     
+      let formattedValue = formateCurrency(value);
+      setDefaultValue(formattedValue);
+      dispatch(isFieldUpdate(props, value, props.data.logical_field_name));
+      props.handleCallback(props.data, value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const wrapper = shallow(
-      <Footer backHandler={backHandlerMock} journeyType="NTC" />
-    );
+  const bindHandler = (fieldName: string, event: any) => {
+    if (event.target.validity.valid) {
+      let fieldValue = event.target.value;
+      if (props.data.logical_field_name === 'required_annual_income' && fieldValue && parseFloat(fieldValue) < loanDetailsConst.minAnnualIncome) {
+        fieldValue = loanDetailsConst.minAnnualIncome.toString();
+        setErrors("");
+      }
+      const formatedValue = formateCurrency(fieldValue);
+      setDefaultValue(formatedValue);
+      dispatch(isFieldUpdate(props, fieldValue, fieldName));
+      dispatch(isFieldValueUpdate(props, stageSelector, fieldValue));
+      props.handleCallback(props.data, fieldValue);
+    }
+  };
 
-    // Check if Back button is rendered
-    expect(wrapper.find(".back").length).toBe(1);
-    expect(wrapper.find(".continue").text()).toBe("Continue");
-  });
+  const formateCurrency = (amount: string) => {
+    if (amount) {
+      amount = amount.replaceAll(',','');
+      let formatedAmount = parseInt(amount).toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD"
+      });
+      formatedAmount = formatedAmount.replaceAll("$", "").replaceAll(".00", "");
+      return formatedAmount;
+    } else {
+      return amount;
+    }
+  };
 
-  it("renders correctly when back button is not enabled", () => {
-    // Mock the selector to return a stage where back button should be disabled
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "SSF_1", stageInfo: { products: [{}] } },
-    ]);
+  const allowOnlyNumber = (event: any, fieldName: string) => {
+    validateService.allowOnlyCharacter(event, fieldName);
+  };
 
-    const wrapper = shallow(
-      <Footer backHandler={backHandlerMock} journeyType="NTC" />
-    );
+  const onFocus = (
+    fieldName: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if(event.target.value){
+      setDefaultValue(event.target.value.replaceAll(',',''));
+    }
+  };
+  useEffect(() => {
+    if(props.data.logical_field_name === "required_annual_income"){
+      if(userInputSelector.applicants.required_annual_income_a_1 >= loanDetailsConst.minAnnualIncome){
+        props.handleCallback(props.data, userInputSelector.applicants.required_annual_income_a_1);
+      } else {
+        props.handleCallback(props.data, "");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[userInputSelector.applicants.required_annual_income_a_1])
 
-    // Check if Back button is not rendered
-    expect(wrapper.find(".back").length).toBe(0);
-  });
+  const getStoreValue = () => {
+    if (
+      stageSelector &&
+      stageSelector[0] &&
+      stageSelector[0].stageInfo &&
+      stageSelector[0].stageInfo.applicants
+    ) {
+      const userInputResponse =
+        userInputSelector.applicants[fieldIdAppend(props)];
 
-  it("calls backHandler when back button is clicked", () => {
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "someStage", stageInfo: { products: [{}] } },
-    ]);
+      const stageIndex = getUrl
+        .getUpdatedStage()
+        .updatedStageInputs.findIndex(
+          (ref: any) => ref && ref.stageId === stageSelector[0].stageId
+        );
+      let updatedVal = null;
+      if (stageIndex > -1) {
+        console.log(getUrl.getUpdatedStage().updatedStageInputs[stageIndex]);
+        console.log(fieldIdAppend(props))
+        updatedVal =
+          getUrl.getUpdatedStage().updatedStageInputs[stageIndex].applicants[
+            fieldIdAppend(props)
+          ];
+      }
 
-    const wrapper = shallow(
-      <Footer backHandler={backHandlerMock} journeyType="NTC" />
-    );
-    wrapper.find(".back").simulate("click");
+      let fieldValue = "";
+      if (updatedVal) {
+        fieldValue = updatedVal;
+      } else if (userInputResponse) {
+        fieldValue = userInputResponse;
+      } else if (
+        stageSelector[0].stageInfo.applicants[fieldIdAppend(props)] &&
+        updatedVal !== ""
+      ) {
+        fieldValue =
+          stageSelector[0].stageInfo.applicants[fieldIdAppend(props)];
+      }
+      return fieldValue;
+    }
+    return "";
+  }
 
-    // Check if backHandler was called
-    expect(backHandlerMock).toHaveBeenCalledTimes(1);
-  });
+  useEffect(() => {
+    setErrors(fieldError(fieldErrorSelector, props));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldErrorSelector]);
 
-  it("displays 'Agree and Submit' text when stageId is 'rp' or uploadJourney is true", () => {
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "rp", stageInfo: { products: [{}] } },
-    ]);
+  return (
+    <>
+      <div className="text">
+        <label htmlFor={props.data.logical_field_name}>
+          {props.data.rwb_label_name}
+        </label>
+        <input
+          type={props.data.type}
+          name={props.data.logical_field_name}
+          aria-label={props.data.logical_field_name}
+          id={fieldIdAppend(props)}
+          placeholder={props.data.rwb_label_name}
+          value={defaultValue}
+          minLength={props.data.min_length}
+          maxLength={props.data.length}
+          onChange={changeHandler.bind(this, props.data.logical_field_name)}
+          onBlur={bindHandler.bind(this, props.data.logical_field_name)}
+          onKeyPress={(event) =>
+            allowOnlyNumber(event, props.data.logical_field_name)
+          }
+          onFocus={onFocus.bind(this, props.data.logical_field_name)}
+        />
+        {errors && (
+        <div className="error-msg">
+          {/* Please enter {props.data.rwb_label_name} */}
+          {errors}
+        </div>
+      )}
+      </div>
+    </>
+  );
+};
 
-    const wrapper = shallow(
-      <Footer
-        backHandler={backHandlerMock}
-        journeyType="NTC"
-        uploadJourney={true}
-      />
-    );
-
-    // Check if the button text is 'Agree and Submit'
-    expect(wrapper.find(".continue").text()).toBe("Agree and Submit");
-  });
-
-  it("displays 'Continue' text when ctaSpinner is false and conditions are not met", () => {
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "someStage", stageInfo: { products: [{}] } },
-    ]);
-
-    const wrapper = shallow(
-      <Footer
-        backHandler={backHandlerMock}
-        journeyType="NTC"
-        uploadJourney={false}
-      />
-    );
-
-    // Check if the button text is 'Continue'
-    expect(wrapper.find(".continue").text()).toBe("Continue");
-  });
-
-  it("displays spinner when ctaSpinner is true", () => {
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "rp", stageInfo: { products: [{}] } },
-    ]);
-
-    const wrapper = shallow(
-      <Footer
-        backHandler={backHandlerMock}
-        journeyType="NTC"
-        uploadJourney={false}
-      />
-    );
-
-    // Set state to show the spinner
-    wrapper.setState({ ctaSpinner: true });
-
-    // Check if spinner is displayed
-    expect(wrapper.find(".circle-spinner").length).toBe(1);
-  });
-
-  it("correctly hides spinner when ctaSpinner is false", () => {
-    (useSelector as jest.Mock).mockReturnValue([
-      { stageId: "rp", stageInfo: { products: [{}] } },
-    ]);
-
-    const wrapper = shallow(
-      <Footer
-        backHandler={backHandlerMock}
-        journeyType="NTC"
-        uploadJourney={false}
-      />
-    );
-
-    // Set state to hide the spinner
-    wrapper.setState({ ctaSpinner: false });
-
-    // Check if spinner is hidden
-    expect(wrapper.find(".circle-spinner").length).toBe(0);
-  });
-
-  it("correctly calls getUrl function to determine endpoint", () => {
-    const { getUrl } = require("../../../utils/common/change.utils");
-
-    // Mock getUrl function to return a specific value
-    (getUrl as jest.Mock).mockReturnValue({
-      getUrlEndPoint: () => "acknowledge",
-    });
-
-    // Ensure the mocked function is returning the expected value
-    expect(getUrl().getUrlEndPoint()).toBe("acknowledge");
-  });
-
-  it("correctly handles stage selection logic", () => {
-    // Test case where `stageSelector` changes based on props
-    (useSelector as jest.Mock).mockReturnValue([
-      {
-        stageId: "BD_3",
-        stageInfo: {
-          products: [{ product_category: "CC" }],
-        },
-      },
-    ]);
-
-    const wrapper = shallow(
-      <Footer
-        backHandler={backHandlerMock}
-        journeyType="NTC"
-        uploadJourney={false}
-        otherMyinfo={false}
-      />
-    );
-
-    // Expect the back button not to be displayed due to the stage condition
-    expect(wrapper.find(".back").length).toBe(0);
-  });
-});
+export default Amount;
