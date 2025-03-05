@@ -347,3 +347,47 @@ export const RadioWithLabel = (props: KeyWithAnyModel) => {
 };
 
 export default RadioWithLabel;
+
+
+[
+    {
+        "CODE_DESC": "Salaried/ Partial Commission Earner",
+        "CODE_VALUE": "S",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "Self Employed",
+        "CODE_VALUE": "E",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "100% Commission Earner",
+        "CODE_VALUE": "C",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "Home Maker",
+        "CODE_VALUE": "H",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "Retired",
+        "CODE_VALUE": "R",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "Student",
+        "CODE_VALUE": "Z",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "Unemployed",
+        "CODE_VALUE": "U",
+        "checked": false
+    },
+    {
+        "CODE_DESC": "Other",
+        "CODE_VALUE": "O",
+        "checked": false
+    }
+]
